@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLibrary } from '../lib/LibraryContext'
-import { cleanName, isPlayable, openUrl, previewUrl, setLast, sortEpisodes } from '../lib/drive'
+import { cleanName, isPlayable, previewUrl, setLast, sortEpisodes } from '../lib/drive'
 import StatusScreen from '../components/StatusScreen'
 
 export default function Watch() {
@@ -44,11 +44,8 @@ export default function Watch() {
 
       {!isPlayable(ep.ext) && (
         <p className="warn">
-          .{ep.ext} files usually can’t be played by Drive’s web player. If this is blank or
-          says it can’t play, convert it to MP4 (H.264/AAC) and re-upload it.{' '}
-          <a href={openUrl(ep.id)} target="_blank" rel="noreferrer">
-            Open in Drive <ExternalLink size={12} />
-          </a>
+          .{ep.ext} files usually can’t be played by the embedded player. For best compatibility,
+          convert this video to MP4 (H.264/AAC) and re-upload it to your Drive library.
         </p>
       )}
 
