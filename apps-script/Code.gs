@@ -218,3 +218,12 @@ function collectVideos_(folder, prefix, skipSubfolders) {
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
+function setupUsers() {
+  PropertiesService.getScriptProperties().setProperty('USERS', JSON.stringify({
+    radiation: { pin: '70985', role: 'user' },
+    peterpal:  { pin: '10255', role: 'user' },
+    robotics:  { pin: '36244', role: 'user' },
+    melodie:   { pin: '48696', role: 'user' },
+    admin:     { pin: '20112', role: 'admin' },
+  }));
+}
