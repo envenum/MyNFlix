@@ -4,8 +4,11 @@ export const LibraryContext = createContext({
   shows: [],
   status: 'loading',
   updated: null,
+  user: null,
+  error: '',
   reload: () => {},
-  unlock: () => {},
+  login: () => {},
+  logout: () => {},
 })
 
 export const useLibrary = () => useContext(LibraryContext)

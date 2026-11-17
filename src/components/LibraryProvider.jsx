@@ -1,25 +1,52 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LibraryContext } from '../lib/LibraryContext'
-import { API_URL, fetchLibrary, setKey } from '../lib/drive'
+import { API_URL, clearSession, fetchLibrary, getSession, setSession } from '../lib/drive'
 
 const POLL_MS = 60_000 // re-check the Drive folder every minute
 
-export default function LibraryProvider({ children }) {
-  const [state, setState] = useState({
+const ERRORS = {
+  unauthorized: 'Wrong PIN. Try again.',
+  locked: 'Too many wrong tries. Wait 15 minutes and try again.',
+  misconfigured: 'The PIN setup on the server is invalid.',
+}
+
+function initialState() {
+  const session = getSession()
+  return {
     shows: [],
-    status: API_URL ? 'loading' : 'unconfigured',
     updated: null,
-  })
+    user: session ? session.user : null,
+    error: '',
+    status: !API_URL ? 'unconfigured' : session ? 'loading' : 'login',
+  }
+}
+
+export default function LibraryProvider({ children }) {
+  const [state, setState] = useState(initialState)
 
   const load = useCallback(async (fresh = false) => {
-    if (!API_URL) return
+    const session = getSession()
+    if (!API_URL || !session) return
     try {
-      const data = await fetchLibrary(fresh)
-      if (data.error === 'unauthorized') {
-        setState((s) => ({ ...s, status: 'locked' }))
+      const data = await fetchLibrary(session, fresh)
+      if (data.error) {
+        clearSession()
+        setState({
+          shows: [],
+          updated: null,
+          user: null,
+          status: 'login',
+          error: ERRORS[data.error] || 'Could not sign in.',
+        })
         return
       }
-      setState({ shows: data.shows || [], status: 'ready', updated: data.updated })
+      setState({
+        shows: data.shows || [],
+        updated: data.updated,
+        user: session.user,
+        status: 'ready',
+        error: '',
+      })
     } catch {
       setState((s) => (s.status === 'ready' ? s : { ...s, status: 'error' }))
     }
@@ -42,10 +69,14 @@ export default function LibraryProvider({ children }) {
     () => ({
       ...state,
       reload: () => load(true),
-      unlock: (key) => {
-        setKey(key)
-        setState((s) => ({ ...s, status: 'loading' }))
+      login: (user, pin) => {
+        setSession({ user, pin })
+        setState((s) => ({ ...s, user, status: 'loading', error: '' }))
         load(true)
+      },
+      logout: () => {
+        clearSession()
+        setState({ shows: [], updated: null, user: null, status: 'login', error: '' })
       },
     }),
     [state, load],

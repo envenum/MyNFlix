@@ -1,44 +1,55 @@
 export const API_URL = import.meta.env.VITE_DRIVE_API_URL || ''
 
-const KEY_STORE = 'mynflix-key'
-const LAST_STORE = 'mynflix-last'
+const SESSION_STORE = 'mynflix-session'
+const lastKey = (user) => `mynflix-last-${user || 'guest'}`
 
-export function getKey() {
+export function getSession() {
   try {
-    return localStorage.getItem(KEY_STORE) || ''
-  } catch {
-    return '' // storage unavailable
-  }
-}
-
-export function setKey(value) {
-  try {
-    localStorage.setItem(KEY_STORE, value)
-  } catch {
-    // storage unavailable
-  }
-}
-
-export function getLast() {
-  try {
-    return JSON.parse(localStorage.getItem(LAST_STORE) || 'null')
+    const s = JSON.parse(localStorage.getItem(SESSION_STORE) || 'null')
+    return s && s.user && s.pin ? s : null
   } catch {
     return null
   }
 }
 
-export function setLast(entry) {
+export function setSession(session) {
   try {
-    localStorage.setItem(LAST_STORE, JSON.stringify(entry))
+    localStorage.setItem(SESSION_STORE, JSON.stringify(session))
   } catch {
     // storage unavailable
   }
 }
 
-export async function fetchLibrary(fresh = false) {
+export function clearSession() {
+  try {
+    localStorage.removeItem(SESSION_STORE)
+  } catch {
+    // storage unavailable
+  }
+}
+
+export function getLast(user) {
+  try {
+    return JSON.parse(localStorage.getItem(lastKey(user)) || 'null')
+  } catch {
+    return null
+  }
+}
+
+export function setLast(user, entry) {
+  try {
+    localStorage.setItem(lastKey(user), JSON.stringify(entry))
+  } catch {
+    // storage unavailable
+  }
+}
+
+export async function fetchLibrary(session, fresh = false) {
   const url = new URL(API_URL)
-  const key = getKey()
-  if (key) url.searchParams.set('key', key)
+  if (session) {
+    url.searchParams.set('user', session.user)
+    url.searchParams.set('pin', session.pin)
+  }
   if (fresh) url.searchParams.set('fresh', '1')
   const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

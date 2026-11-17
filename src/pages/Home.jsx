@@ -7,9 +7,9 @@ import ShowCard from '../components/ShowCard'
 import StatusScreen from '../components/StatusScreen'
 
 export default function Home() {
-  const { shows, status } = useLibrary()
+  const { shows, status, user } = useLibrary()
   const [q, setQ] = useState('')
-  const last = getLast()
+  const last = getLast(user)
 
   const term = q.trim().toLowerCase()
   const results = useMemo(() => {

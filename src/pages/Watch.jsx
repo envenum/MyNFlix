@@ -7,7 +7,7 @@ import StatusScreen from '../components/StatusScreen'
 
 export default function Watch() {
   const { showId, fileId } = useParams()
-  const { shows, status } = useLibrary()
+  const { shows, status, user } = useLibrary()
 
   const show = shows.find((s) => s.id === showId)
   const episodes = show ? sortEpisodes(show.episodes) : []
@@ -15,8 +15,8 @@ export default function Watch() {
   const ep = episodes[index]
 
   useEffect(() => {
-    if (ep) setLast({ showId, fileId, name: ep.name })
-  }, [ep, showId, fileId])
+    if (ep) setLast(user, { showId, fileId, name: ep.name })
+  }, [ep, user, showId, fileId])
 
   if (status !== 'ready') return <StatusScreen />
   if (!show || !ep) return <p className="notice">Not found. <Link to="/">Back home</Link></p>

@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { Lock } from 'lucide-react'
 import { useLibrary } from '../lib/LibraryContext'
+import Login from './Login'
 
 // Shown instead of the library when it is not ready yet.
 export default function StatusScreen() {
-  const { status, unlock, reload } = useLibrary()
-  const [pw, setPw] = useState('')
+  const { status, reload } = useLibrary()
+
+  if (status === 'login') return <Login />
 
   if (status === 'loading') return <p className="notice">Loading your library…</p>
 
@@ -18,31 +18,6 @@ export default function StatusScreen() {
           README under “Connect Google Drive”.
         </p>
       </div>
-    )
-
-  if (status === 'locked')
-    return (
-      <form
-        className="notice"
-        onSubmit={(e) => {
-          e.preventDefault()
-          unlock(pw)
-        }}
-      >
-        <Lock size={28} />
-        <h2>Enter password</h2>
-        <input
-          className="input"
-          type="password"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          placeholder="Password"
-          autoFocus
-        />
-        <button className="btn" type="submit">
-          Unlock
-        </button>
-      </form>
     )
 
   return (
