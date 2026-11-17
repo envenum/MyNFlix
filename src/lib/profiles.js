@@ -1,9 +1,13 @@
-// Profile names only. PINs are checked by the Apps Script server and never stored here.
-export const PROFILES = [
-  { id: 'radiation', name: 'Radiation', color: '#e50914' },
-  { id: 'peterpal', name: 'Peterpal', color: '#2d7ff9' },
-  { id: 'robotics', name: 'Robotics', color: '#22b07d' },
-  { id: 'melodie', name: 'Melodie', color: '#b455e8' },
-]
+// Profiles come from the server (Apps Script). Only helpers live here: no usernames or PINs.
+export const GUEST_ID = 'guest'
 
-export const findProfile = (id) => PROFILES.find((p) => p.id === id)
+const COLORS = ['#e50914', '#2d7ff9', '#22b07d', '#b455e8', '#f59e0b', '#06b6d4']
+
+export function colorFor(id) {
+  if (id === GUEST_ID) return '#52525b'
+  let h = 0
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return COLORS[h % COLORS.length]
+}
+
+export const displayName = (id) => (id ? id.charAt(0).toUpperCase() + id.slice(1) : '')

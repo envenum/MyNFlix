@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Play, Search } from 'lucide-react'
+import { Lock, Play, Search } from 'lucide-react'
 import { useLibrary } from '../lib/LibraryContext'
 import { cleanName, getLast, sortEpisodes } from '../lib/drive'
 import ShowCard from '../components/ShowCard'
 import StatusScreen from '../components/StatusScreen'
 
 export default function Home() {
-  const { shows, status, user } = useLibrary()
+  const { shows, status, user, role } = useLibrary()
   const [q, setQ] = useState('')
-  const last = getLast(user)
+  const guest = role === 'guest'
+  const last = guest ? null : getLast(user)
 
   const term = q.trim().toLowerCase()
   const results = useMemo(() => {
@@ -25,6 +26,8 @@ export default function Home() {
 
   return (
     <main className="page">
+      {guest && <p className="warn">Guest preview: you can browse titles but not play videos.</p>}
+
       <label className="search">
         <Search size={18} />
         <input
@@ -39,12 +42,20 @@ export default function Home() {
         results.length ? (
           <ul className="list">
             {results.map(({ show, ep }) => (
-              <li key={ep.id}>
-                <Link to={`/watch/${show.id}/${ep.id}`} className="row">
-                  <Play size={16} />
-                  <span className="row-main">{cleanName(ep.name)}</span>
-                  <span className="row-sub">{show.name}</span>
-                </Link>
+              <li key={ep.id || `${show.id}-${ep.name}`}>
+                {guest ? (
+                  <div className="row locked">
+                    <Lock size={16} />
+                    <span className="row-main">{cleanName(ep.name)}</span>
+                    <span className="row-sub">{show.name}</span>
+                  </div>
+                ) : (
+                  <Link to={`/watch/${show.id}/${ep.id}`} className="row">
+                    <Play size={16} />
+                    <span className="row-main">{cleanName(ep.name)}</span>
+                    <span className="row-sub">{show.name}</span>
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

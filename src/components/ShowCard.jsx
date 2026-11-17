@@ -5,14 +5,16 @@ import { thumbUrl, sortEpisodes } from '../lib/drive'
 export default function ShowCard({ show }) {
   const [broken, setBroken] = useState(false)
   const first = sortEpisodes(show.episodes)[0]
-  const count = show.episodes.length
+  const count = show.count ?? show.episodes.length
+  // guests get an inline thumbnail from the server; everyone else loads it from Drive
+  const src = show.thumb || (first && first.id ? thumbUrl(first.id) : '')
 
   return (
     <Link to={`/show/${show.id}`} className="card">
       <div className="card-img">
-        {!broken && first ? (
+        {!broken && src ? (
           <img
-            src={thumbUrl(first.id)}
+            src={src}
             alt=""
             loading="lazy"
             referrerPolicy="no-referrer"

@@ -6,7 +6,7 @@ const lastKey = (user) => `mynflix-last-${user || 'guest'}`
 export function getSession() {
   try {
     const s = JSON.parse(localStorage.getItem(SESSION_STORE) || 'null')
-    return s && s.user && s.pin ? s : null
+    return s && s.user ? s : null
   } catch {
     return null
   }
@@ -44,17 +44,23 @@ export function setLast(user, entry) {
   }
 }
 
-export async function fetchLibrary(session, fresh = false) {
+async function request(params) {
   const url = new URL(API_URL)
-  if (session) {
-    url.searchParams.set('user', session.user)
-    url.searchParams.set('pin', session.pin)
-  }
-  if (fresh) url.searchParams.set('fresh', '1')
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== '') url.searchParams.set(k, v)
+  })
   const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }
+
+export const fetchProfiles = () => request({ action: 'profiles' })
+
+export const fetchLibrary = (session, fresh = false) =>
+  request({ user: session.user, pin: session.pin, fresh: fresh ? '1' : '' })
+
+export const adminCall = (session, action, extra = {}) =>
+  request({ action, user: session.user, pin: session.pin, ...extra })
 
 export const previewUrl = (id) => `https://drive.google.com/file/d/${id}/preview`
 export const openUrl = (id) => `https://drive.google.com/file/d/${id}/view`

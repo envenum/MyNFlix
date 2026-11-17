@@ -5,6 +5,7 @@ export const LibraryContext = createContext({
   status: 'loading',
   updated: null,
   user: null,
+  role: null,
   error: '',
   reload: () => {},
   login: () => {},

@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom'
-import { LogOut, RefreshCw } from 'lucide-react'
+import { LogOut, RefreshCw, Settings } from 'lucide-react'
 import { useLibrary } from '../lib/LibraryContext'
-import { findProfile } from '../lib/profiles'
+import { colorFor, displayName } from '../lib/profiles'
 
 export default function Navbar() {
-  const { reload, logout, status, user } = useLibrary()
-  const profile = findProfile(user)
+  const { reload, logout, status, user, role } = useLibrary()
   const signedIn = status === 'ready' || status === 'loading'
 
   return (
@@ -14,13 +13,18 @@ export default function Navbar() {
         MY<span>N</span>FLIX
       </Link>
       <div className="nav-right">
-        {signedIn && profile && (
+        {signedIn && user && (
           <span className="nav-user">
-            <span className="avatar small" style={{ background: profile.color }}>
-              {profile.name.slice(0, 1)}
+            <span className="avatar small" style={{ background: colorFor(user) }}>
+              {displayName(user).slice(0, 1)}
             </span>
-            {profile.name}
+            {displayName(user)}
           </span>
+        )}
+        {role === 'admin' && (
+          <Link to="/admin" className="icon-btn" title="Manage users" aria-label="Manage users">
+            <Settings size={18} />
+          </Link>
         )}
         <button
           className="icon-btn"
