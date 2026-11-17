@@ -1,198 +1,71 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Check, ThumbsUp, Download, ExternalLink, Share2 } from 'lucide-react';
-import { tmdbService } from '../services/tmdb';
-import MoviePlayer from '../components/MoviePlayer';
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
+import { useEffect } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { useLibrary } from '../lib/LibraryContext'
+import { cleanName, isPlayable, openUrl, previewUrl, setLast, sortEpisodes } from '../lib/drive'
+import StatusScreen from '../components/StatusScreen'
 
-const Watch = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  
-  const [movie, setMovie] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [inList, setInList] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [copied, setCopied] = useState(false);
+export default function Watch() {
+  const { showId, fileId } = useParams()
+  const { shows, status } = useLibrary()
+
+  const show = shows.find((s) => s.id === showId)
+  const episodes = show ? sortEpisodes(show.episodes) : []
+  const index = episodes.findIndex((e) => e.id === fileId)
+  const ep = episodes[index]
 
   useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-    setError(null);
+    if (ep) setLast({ showId, fileId, name: ep.name })
+  }, [ep, showId, fileId])
 
-    tmdbService.getMovieDetails(id)
-      .then(data => {
-        if (isMounted) {
-          if (data) {
-            setMovie(data);
-            
-            // Check if in My List
-            const list = JSON.parse(localStorage.getItem('streamflix_mylist')) || [];
-            const exists = list.some(item => item.id === data.id);
-            setInList(exists);
-          } else {
-            setError("Movie details could not be found.");
-          }
-          setLoading(false);
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          console.error("Error loading movie details:", err);
-          setError("Failed to retrieve movie details.");
-          setLoading(false);
-        }
-      });
+  if (status !== 'ready') return <StatusScreen />
+  if (!show || !ep) return <p className="notice">Not found. <Link to="/">Back home</Link></p>
 
-    return () => {
-      isMounted = false;
-    };
-  }, [id]);
-
-  const handleListToggle = () => {
-    if (!movie) return;
-
-    const list = JSON.parse(localStorage.getItem('streamflix_mylist')) || [];
-    let updatedList;
-
-    if (inList) {
-      updatedList = list.filter(item => item.id !== movie.id);
-    } else {
-      updatedList = [...list, movie];
-    }
-
-    localStorage.setItem('streamflix_mylist', JSON.stringify(updatedList));
-    setInList(!inList);
-    window.dispatchEvent(new Event('mylist_updated'));
-  };
-
-  const handleLikeToggle = () => {
-    setIsLiked(!isLiked);
-  };
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  if (loading) return <LoadingSpinner />;
-  if (error || !movie) return <ErrorMessage message={error || "Movie details not available."} />;
+  const prev = episodes[index - 1]
+  const next = episodes[index + 1]
 
   return (
-    <div className="watch-page">
-      {/* Back Button */}
-      <div className="back-btn-container">
-        <button className="btn-back" onClick={() => navigate(-1)}>
-          <ArrowLeft size={18} /> Back
-        </button>
+    <main className="page">
+      <Link to={`/show/${show.id}`} className="back">
+        <ChevronLeft size={18} /> {show.name}
+      </Link>
+
+      <div className="player">
+        <iframe
+          key={ep.id}
+          src={previewUrl(ep.id)}
+          title={cleanName(ep.name)}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+        />
       </div>
 
-      {/* Video Player */}
-      <MoviePlayer movie={movie} />
+      <h1 className="title">{cleanName(ep.name)}</h1>
 
-      {/* Movie Details Info */}
-      <div className="watch-details-container">
-        <div className="details-main">
-          <h1 className="details-title">{movie.title}</h1>
-          
-          <div className="details-meta-row">
-            <span className="rating-badge">{movie.rating} Rating</span>
-            <span className="year-badge">{movie.year}</span>
-            <span className="runtime-badge">{movie.runtime}</span>
-            <span className="hero-badge" style={{ borderColor: '#e50914', color: '#fff', backgroundColor: 'rgba(229,9,20,0.2)' }}>1080p Ultra HD</span>
-            {movie.youtubeId && <span className="hero-badge">Trailer Available</span>}
-            {movie.videoUrl && <span className="hero-badge" style={{ borderColor: '#46d369', color: '#46d369' }}>Free Full Movie</span>}
-          </div>
+      {!isPlayable(ep.ext) && (
+        <p className="warn">
+          .{ep.ext} files usually can’t be played by Drive’s web player. If this is blank or
+          says it can’t play, convert it to MP4 (H.264/AAC) and re-upload it.{' '}
+          <a href={openUrl(ep.id)} target="_blank" rel="noreferrer">
+            Open in Drive <ExternalLink size={12} />
+          </a>
+        </p>
+      )}
 
-          <p className="details-description">{movie.description}</p>
-
-          <div className="details-action-buttons">
-            {/* Add to List */}
-            <button 
-              className={`btn-action ${inList ? 'active' : ''}`} 
-              onClick={handleListToggle}
-            >
-              {inList ? <Check size={18} /> : <Plus size={18} />}
-              {inList ? "In My List" : "Add to My List"}
-            </button>
-
-            {/* Like */}
-            <button 
-              className={`btn-action ${isLiked ? 'active' : ''}`}
-              onClick={handleLikeToggle}
-            >
-              <ThumbsUp size={18} fill={isLiked ? 'currentColor' : 'none'} />
-              {isLiked ? "Liked" : "Like Title"}
-            </button>
-
-            {/* Share */}
-            <button
-              className={`btn-action ${copied ? 'active' : ''}`}
-              onClick={handleShare}
-            >
-              {copied ? <Check size={18} /> : <Share2 size={18} />}
-              {copied ? "Link Copied!" : "Share Title"}
-            </button>
-
-            {/* Download option */}
-            {movie.videoUrl ? (
-              <a 
-                href={movie.videoUrl} 
-                download={`${movie.title.replace(/\s+/g, '_')}.mp4`}
-                className="btn-action btn-download"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Download size={18} /> Download Movie (Free)
-              </a>
-            ) : (
-              movie.youtubeId && (
-                <a 
-                  href={`https://www.youtube.com/watch?v=${movie.youtubeId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-action"
-                  style={{ gap: '8px' }}
-                >
-                  <ExternalLink size={18} /> Watch on YouTube
-                </a>
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Sidebar details */}
-        <div className="details-sidebar">
-          <div className="sidebar-section">
-            <span className="sidebar-label">Cast</span>
-            <span className="sidebar-value">
-              {movie.cast && movie.cast.length > 0 
-                ? movie.cast.join(', ') 
-                : "No cast credits available."}
-            </span>
-          </div>
-
-          <div className="sidebar-section">
-            <span className="sidebar-label">Genres</span>
-            <div style={{ marginTop: '5px' }}>
-              {movie.genres && movie.genres.length > 0 ? (
-                movie.genres.map((g, idx) => (
-                  <span key={idx} className="genre-tag">
-                    {typeof g === 'object' ? g.name : g}
-                  </span>
-                ))
-              ) : (
-                <span className="sidebar-value">No genre tags.</span>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="pager">
+        {prev ? (
+          <Link className="btn ghost" to={`/watch/${show.id}/${prev.id}`}>
+            <ChevronLeft size={16} /> Previous
+          </Link>
+        ) : (
+          <span />
+        )}
+        {next && (
+          <Link className="btn" to={`/watch/${show.id}/${next.id}`}>
+            Next <ChevronRight size={16} />
+          </Link>
+        )}
       </div>
-    </div>
-  );
-};
-
-export default Watch;
+    </main>
+  )
+}

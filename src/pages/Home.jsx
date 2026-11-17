@@ -1,70 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import HeroBanner from '../components/HeroBanner';
-import MovieRow from '../components/MovieRow';
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
-import { tmdbService } from '../services/tmdb';
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Play, Search } from 'lucide-react'
+import { useLibrary } from '../lib/LibraryContext'
+import { cleanName, getLast, sortEpisodes } from '../lib/drive'
+import ShowCard from '../components/ShowCard'
+import StatusScreen from '../components/StatusScreen'
 
-const Home = () => {
-  const [featuredMovie, setFeaturedMovie] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function Home() {
+  const { shows, status } = useLibrary()
+  const [q, setQ] = useState('')
+  const last = getLast()
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    // Fetch trending to set the main Hero Banner movie
-    tmdbService.fetchTrending()
-      .then(movies => {
-        if (isMounted) {
-          if (movies && movies.length > 0) {
-            // Select a random movie or the first movie from trending
-            const randomIndex = Math.floor(Math.random() * Math.min(movies.length, 5));
-            setFeaturedMovie(movies[randomIndex]);
-          }
-          setLoading(false);
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          console.error("Error setting featured movie:", err);
-          setError("Failed to load home page content.");
-          setLoading(false);
-        }
-      });
+  const term = q.trim().toLowerCase()
+  const results = useMemo(() => {
+    if (!term) return null
+    return shows.flatMap((show) =>
+      sortEpisodes(show.episodes)
+        .filter((ep) => `${show.name} ${ep.name}`.toLowerCase().includes(term))
+        .map((ep) => ({ show, ep })),
+    )
+  }, [shows, term])
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
-  if (error) {
-    return <ErrorMessage message={error} />;
-  }
+  if (status !== 'ready') return <StatusScreen />
 
   return (
-    <div style={{ paddingBottom: '50px' }}>
-      {/* Featured Hero Banner */}
-      <HeroBanner movie={featuredMovie} />
+    <main className="page">
+      <label className="search">
+        <Search size={18} />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search your library"
+          aria-label="Search"
+        />
+      </label>
 
-      {/* Categorized Horizontally Scrollable Movie Rows */}
-      <div style={{ marginTop: '-80px', position: 'relative', zIndex: '10' }}>
-        <MovieRow title="Trending Now" fetchAction={tmdbService.fetchTrending} />
-        <MovieRow title="Popular Movies" fetchAction={tmdbService.fetchPopular} />
-        <MovieRow title="Top Rated" fetchAction={tmdbService.fetchTopRated} />
-        <MovieRow title="Action Blockbusters" fetchAction={tmdbService.fetchAction} />
-        <MovieRow title="Adventure Quests" fetchAction={tmdbService.fetchAdventure} />
-        <MovieRow title="Sci-Fi Fantasies" fetchAction={tmdbService.fetchSciFi} />
-        <MovieRow title="Horror Chills" fetchAction={tmdbService.fetchHorror} />
-        <MovieRow title="Animation Favorites" fetchAction={tmdbService.fetchAnimation} />
-        <MovieRow title="Recently Added" fetchAction={tmdbService.fetchRecentlyAdded} />
-      </div>
-    </div>
-  );
-};
-
-export default Home;
+      {results ? (
+        results.length ? (
+          <ul className="list">
+            {results.map(({ show, ep }) => (
+              <li key={ep.id}>
+                <Link to={`/watch/${show.id}/${ep.id}`} className="row">
+                  <Play size={16} />
+                  <span className="row-main">{cleanName(ep.name)}</span>
+                  <span className="row-sub">{show.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="notice">No matches.</p>
+        )
+      ) : (
+        <>
+          {last && (
+            <Link to={`/watch/${last.showId}/${last.fileId}`} className="resume">
+              <Play size={18} /> Continue: {cleanName(last.name)}
+            </Link>
+          )}
+          {shows.length ? (
+            <div className="grid">
+              {shows.map((s) => (
+                <ShowCard key={s.id} show={s} />
+              ))}
+            </div>
+          ) : (
+            <p className="notice">No videos found yet. Add some to your Drive folder.</p>
+          )}
+        </>
+      )}
+    </main>
+  )
+}
