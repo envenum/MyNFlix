@@ -1,0 +1,11 @@
+# Optional: only needed if you deploy with the Wrangler CLI instead of pasting index.js
+# into the Cloudflare dashboard. Secrets are NOT stored here:
+#   npx wrangler secret put DRIVE_API_KEY
+#   npx wrangler secret put TOKEN_SECRET
+name = "mynflix-stream"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://envenum.github.io"
+# APPS_SCRIPT_URL = "https://script.google.com/macros/s/…/exec"

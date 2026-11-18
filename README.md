@@ -40,3 +40,18 @@ Drop files into a sub-folder of your Drive folder, and share each file as **Anyo
 ## Privacy
 
 GitHub Pages is static, so video links cannot be made truly private. Videos must be link-shared for the player to work, and anyone who has a video's Drive link can watch it. Sign-in only gates the library list on this site.
+
+## Better player (optional)
+
+By default videos play in Drive's embedded player. To use the site's own player instead (themed controls, speed, keyboard shortcuts, resume, auto-play next, no Drive link in the page), put a small relay between the site and Drive. Drive stays your storage.
+
+1. **Drive API key.** At https://console.cloud.google.com create a project, **APIs & Services > Library > Google Drive API > Enable**, then **Credentials > Create credentials > API key**. Under *API restrictions* limit it to the Google Drive API.
+2. **Update the Apps Script** with the latest `apps-script/Code.gs` (it adds a PIN-check action) and deploy a **New version**.
+3. **Create the Worker.** In Cloudflare: **Workers & Pages > Create > Hello World**, deploy, **Edit code**, replace it with `worker/index.js`, and deploy. Then **Settings > Variables and Secrets**:
+   - `ALLOWED_ORIGIN` (text): `https://envenum.github.io`
+   - `APPS_SCRIPT_URL` (text): your Apps Script `/exec` URL
+   - `DRIVE_API_KEY` (secret): the key from step 1
+   - `TOKEN_SECRET` (secret): any long random string
+4. **Point the site at it.** Add `VITE_STREAM_URL=https://<your-worker>.workers.dev` to `.env.production` and push to `main`.
+
+If the relay is unreachable or a video can't be streamed, the site falls back to the embedded Drive player automatically. Only MP4 (H.264 + AAC) is streamed; other formats use the fallback. Guests never get a stream token. Drive may still refuse heavy traffic ("download quota exceeded") on large files.

@@ -1,13 +1,15 @@
 import { useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLibrary } from '../lib/LibraryContext'
-import { cleanName, isPlayable, previewUrl, setLast, sortEpisodes } from '../lib/drive'
+import { cleanName, isPlayable, setLast, sortEpisodes } from '../lib/drive'
+import Player from '../components/Player'
 import StatusScreen from '../components/StatusScreen'
 
 export default function Watch() {
   const { showId, fileId } = useParams()
   const { shows, status, user } = useLibrary()
+  const navigate = useNavigate()
 
   const show = shows.find((s) => s.id === showId)
   const episodes = show ? sortEpisodes(show.episodes) : []
@@ -30,15 +32,13 @@ export default function Watch() {
         <ChevronLeft size={18} /> {show.name}
       </Link>
 
-      <div className="player">
-        <iframe
-          key={ep.id}
-          src={previewUrl(ep.id)}
-          title={cleanName(ep.name)}
-          allow="autoplay; fullscreen"
-          allowFullScreen
-        />
-      </div>
+      <Player
+        key={ep.id}
+        ep={ep}
+        user={user}
+        hasNext={Boolean(next)}
+        onEnded={() => next && navigate(`/watch/${show.id}/${next.id}`)}
+      />
 
       <h1 className="title">{cleanName(ep.name)}</h1>
 

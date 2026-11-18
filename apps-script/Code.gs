@@ -35,6 +35,7 @@ function doGet(e) {
   const auth = authorize_(p, users, cache);
   if (auth.error) return json_({ error: auth.error });
 
+  if (action === 'check') return json_({ role: auth.role }); // used by the stream relay (worker/)
   if (action === 'library') return library_(auth.role, p, cache);
 
   if (auth.role !== 'admin') return json_({ error: 'forbidden' });
