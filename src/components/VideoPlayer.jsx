@@ -34,10 +34,12 @@ function writePos(key, value) {
 export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, onFail }) {
   const wrapRef = useRef(null)
   const videoRef = useRef(null)
+  const controlsRef = useRef(null)
   const hideRef = useRef(0)
   const lastSaveRef = useRef(0)
   const shownRef = useRef(true)
   const wasShownRef = useRef(true)
+  const interactingRef = useRef(false)
 
   const [playing, setPlaying] = useState(false)
   const [time, setTime] = useState(0)
@@ -56,25 +58,52 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
     clearTimeout(hideRef.current)
     hideRef.current = setTimeout(() => {
       const v = videoRef.current
-      if (v && !v.paused) {
+      const controls = controlsRef.current
+      const focused = controls && controls.contains(document.activeElement)
+      if (v && !v.paused && !interactingRef.current && !focused) {
         shownRef.current = false
         setVisible(false)
       }
     }, HIDE_MS)
   }, [])
 
+  const keepControlsVisible = useCallback(() => {
+    interactingRef.current = true
+    shownRef.current = true
+    setVisible(true)
+    clearTimeout(hideRef.current)
+  }, [])
+
+  const releaseControls = useCallback(() => {
+    interactingRef.current = false
+    reveal()
+  }, [reveal])
+
   useEffect(() => () => clearTimeout(hideRef.current), [])
 
   useEffect(() => {
     const onFs = () => setFull(document.fullscreenElement === wrapRef.current)
     document.addEventListener('fullscreenchange', onFs)
-    return () => document.removeEventListener('fullscreenchange', onFs)
+
+    const video = videoRef.current
+    // iOS Safari uses the native video fullscreen mode instead of the
+    // standard Fullscreen API on some versions.
+    const onNativeStart = () => setFull(true)
+    const onNativeEnd = () => setFull(false)
+    video?.addEventListener('webkitbeginfullscreen', onNativeStart)
+    video?.addEventListener('webkitendfullscreen', onNativeEnd)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFs)
+      video?.removeEventListener('webkitbeginfullscreen', onNativeStart)
+      video?.removeEventListener('webkitendfullscreen', onNativeEnd)
+    }
   }, [])
 
   const toggle = useCallback(() => {
     const v = videoRef.current
     if (!v) return
-    if (v.paused) v.play().catch(() => {})
+    if (v.paused) v.play().catch((error) => console.warn('[MyNFlix] Video play failed:', error))
     else v.pause()
   }, [])
 
@@ -90,13 +119,42 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
     if (v) v.muted = !v.muted
   }, [])
 
-  const toggleFull = useCallback(() => {
+  const toggleFull = useCallback(async () => {
     const el = wrapRef.current
     const v = videoRef.current
     if (!el || !v) return
-    if (document.fullscreenElement) document.exitFullscreen()
-    else if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
-    else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen() // iPhone Safari
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        return
+      }
+      if (el.requestFullscreen) {
+        await el.requestFullscreen()
+        return
+      }
+    } catch (error) {
+      console.warn('[MyNFlix] Standard fullscreen unavailable; trying iOS video fullscreen:', error)
+    }
+
+    // Safari on iPhone exposes fullscreen on the video element itself.
+    if (typeof v.webkitEnterFullscreen === 'function') {
+      try {
+        v.webkitEnterFullscreen()
+        return
+      } catch (error) {
+        console.warn('[MyNFlix] iOS fullscreen failed:', error)
+      }
+    }
+
+    // Last-resort WebKit-prefixed element fullscreen, where available.
+    if (typeof el.webkitRequestFullscreen === 'function') {
+      try {
+        el.webkitRequestFullscreen()
+      } catch (error) {
+        console.warn('[MyNFlix] WebKit fullscreen failed:', error)
+      }
+    }
   }, [])
 
   const cycleSpeed = () => {
@@ -165,15 +223,20 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
         wasShownRef.current = shownRef.current
         reveal()
       }}
+      onTouchStart={() => {
+        wasShownRef.current = shownRef.current
+        reveal()
+      }}
     >
       <video
         ref={videoRef}
         src={src}
         playsInline
+        webkit-playsinline="true"
         preload="metadata"
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => {
-          // on touch screens the first tap only reveals the controls
+          // First tap reveals controls; the next tap toggles playback.
           if (wasShownRef.current) toggle()
         }}
         onLoadedMetadata={onLoadedMetadata}
@@ -201,7 +264,14 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
           setPlaying(false)
           if (onEnded) onEnded()
         }}
-        onError={() => onFail && onFail()}
+        onError={(e) => {
+          console.error('[MyNFlix] Stream video failed:', {
+            src,
+            mediaError: e.currentTarget.error?.code,
+            message: e.currentTarget.error?.message,
+          })
+          if (onFail) onFail()
+        }}
       />
 
       <div className="vp-center">
@@ -216,7 +286,25 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
         )}
       </div>
 
-      <div className={`vp-controls${visible || !playing ? '' : ' hidden'}`}>
+      <div
+        ref={controlsRef}
+        className={`vp-controls${visible || !playing ? '' : ' hidden'}`}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          keepControlsVisible()
+        }}
+        onPointerUp={releaseControls}
+        onPointerCancel={releaseControls}
+        onTouchStart={(e) => {
+          e.stopPropagation()
+          keepControlsVisible()
+        }}
+        onTouchEnd={releaseControls}
+        onFocusCapture={keepControlsVisible}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) releaseControls()
+        }}
+      >
         <input
           className="vp-seek"
           type="range"
@@ -227,19 +315,20 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
           style={{ '--track': track }}
           onChange={(e) => {
             if (videoRef.current) videoRef.current.currentTime = Number(e.target.value)
+            reveal()
           }}
           aria-label="Seek"
         />
         <div className="vp-row">
-          <button className="vp-btn" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
+          <button className="vp-btn" onClick={() => { toggle(); reveal() }} aria-label={playing ? 'Pause' : 'Play'}>
             {playing ? <Pause size={22} /> : <Play size={22} />}
           </button>
           {hasNext && (
-            <button className="vp-btn" onClick={() => onEnded && onEnded()} aria-label="Next episode">
+            <button className="vp-btn vp-next" onClick={() => onEnded && onEnded()} aria-label="Next episode">
               <SkipForward size={20} />
             </button>
           )}
-          <button className="vp-btn" onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'}>
+          <button className="vp-btn vp-mute" onClick={() => { toggleMute(); reveal() }} aria-label={muted ? 'Unmute' : 'Mute'}>
             {muted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
           <input
@@ -257,15 +346,18 @@ export default function VideoPlayer({ src, title, storageKey, hasNext, onEnded, 
             }}
             aria-label="Volume"
           />
-          <span className="vp-time">
-            {fmt(time)} / {fmt(duration)}
-          </span>
+          <span className="vp-time">{fmt(time)} / {fmt(duration)}</span>
           <span className="vp-spacer" />
-          <button className="vp-btn vp-speed" onClick={cycleSpeed} aria-label="Playback speed">
+          <button className="vp-btn vp-speed" onClick={() => { cycleSpeed(); reveal() }} aria-label="Playback speed">
             {speed}x
           </button>
-          <button className="vp-btn" onClick={toggleFull} aria-label={full ? 'Exit fullscreen' : 'Fullscreen'}>
-            {full ? <Minimize size={20} /> : <Maximize size={20} />}
+          <button
+            className="vp-btn vp-fullscreen"
+            onClick={() => { toggleFull(); reveal() }}
+            aria-label={full ? 'Exit fullscreen' : 'Fullscreen'}
+            title={full ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {full ? <Minimize size={21} /> : <Maximize size={21} />}
           </button>
         </div>
       </div>
