@@ -16,7 +16,10 @@ export default function Player({ ep, user, hasNext, onEnded }) {
     let alive = true
     getStreamToken(getSession())
       .then((token) => alive && setSrc(streamSrc(ep.id, token)))
-      .catch(() => alive && setFailed(true))
+      .catch((error) => {
+        console.error('[MyNFlix] Cloudflare stream token request failed; using Google Drive fallback:', error)
+        if (alive) setFailed(true)
+      })
     return () => {
       alive = false
     }
