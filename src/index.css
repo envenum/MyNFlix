@@ -354,3 +354,22 @@ a.icon-btn { display: inline-flex; align-items: center; }
     height: 48px;
   }
 }
+
+/* Drive embed on phones: more height so Google's own controls (incl. fullscreen) are not clipped */
+@media (max-width: 640px) {
+  .player:not(.expanded) { aspect-ratio: auto; height: max(56.25vw, 270px); }
+}
+
+/* "Full screen" for the Drive embed: fills the viewport (works on iPhone, where element fullscreen does not) */
+.player.expanded {
+  position: fixed; inset: 0; z-index: 100; margin: 0; border-radius: 0;
+  width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto;
+}
+.player-close {
+  position: absolute; z-index: 2;
+  top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; color: #fff; cursor: pointer;
+  background: rgba(0, 0, 0, 0.6);
+}
+.player-expand { margin-top: 10px; min-height: 44px; }
